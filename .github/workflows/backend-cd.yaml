@@ -6,7 +6,7 @@ on:
       - main
       - ci-pipeline-verification
     paths:
-      - "starter/backend/*"
+      - "starter/backend/**"
       - ".github/workflows/backend-cd.yaml"
   workflow_dispatch:
 
