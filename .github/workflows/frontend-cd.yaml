@@ -1,0 +1,137 @@
+name: Frontend Continuous Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - ci-pipeline-verification
+    paths:
+      - "starter/frontend/**"
+      - ".github/workflows/frontend-cd.yaml"
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        working-directory: starter/frontend
+        run: npm ci
+
+      - name: Run lint
+        working-directory: starter/frontend
+        run: npm run lint
+
+  test:
+    name: Frontend Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        working-directory: starter/frontend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: starter/frontend
+        run: CI=true npm test -- --watchAll=false
+
+  build:
+    name: Build and Push Frontend Image
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - test
+
+    outputs:
+      registry: ${{ steps.login-ecr.outputs.registry }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
+        working-directory: starter/frontend
+        run: |
+          docker build \
+            --build-arg REACT_APP_MOVIE_API_URL=http://localhost:5000 \
+            --tag ${{ steps.login-ecr.outputs.registry }}/frontend:${{ github.sha }} \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push \
+            ${{ steps.login-ecr.outputs.registry }}/frontend:${{ github.sha }}
+
+  deploy:
+    name: Deploy Frontend to EKS
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --name "${{ secrets.EKS_CLUSTER_NAME }}" \
+            --region "${{ secrets.AWS_REGION }}"
+
+      - name: Install Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/kustomize
+          kustomize version
+
+      - name: Set frontend image
+        working-directory: starter/frontend/k8s
+        run: |
+          kustomize edit set image \
+            frontend=${{ needs.build.outputs.registry }}/frontend:${{ github.sha }}
+
+      - name: Deploy frontend
+        working-directory: starter/frontend/k8s
+        run: |
+          kustomize build . | kubectl apply -f -
+
+      - name: Verify frontend deployment
+        run: |
+          kubectl rollout status deployment/frontend --timeout=180s
+          kubectl get deployment frontend
+          kubectl get service frontend
