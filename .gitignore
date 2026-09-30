@@ -1,0 +1,23 @@
+# Terraform
+setup/terraform/.terraform/
+setup/terraform/terraform.tfstate
+setup/terraform/terraform.tfstate.*
+setup/terraform/.terraform.lock.hcl
+
+# Generated Terraform output
+terraform-outputs.txt
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+starter/frontend/node_modules/
+
+# Environment files
+.env
+.env.*
+
+# OS/editor files
+.DS_Store
