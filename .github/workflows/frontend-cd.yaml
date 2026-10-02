@@ -80,9 +80,11 @@ jobs:
 
       - name: Build Docker image
         working-directory: starter/frontend
+        env:
+          REACT_APP_MOVIE_API_URL: http://localhost:5000
         run: |
           docker build \
-            --build-arg REACT_APP_MOVIE_API_URL=http://localhost:5000 \
+            --build-arg REACT_APP_MOVIE_API_URL="${REACT_APP_MOVIE_API_URL}" \
             --tag ${{ steps.login-ecr.outputs.registry }}/frontend:${{ github.sha }} \
             .
 
