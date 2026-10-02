@@ -60,9 +60,6 @@ jobs:
       - lint
       - test
 
-    outputs:
-      registry: ${{ steps.login-ecr.outputs.registry }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -75,7 +72,6 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build Docker image
@@ -85,13 +81,13 @@ jobs:
         run: |
           docker build \
             --build-arg REACT_APP_MOVIE_API_URL="${REACT_APP_MOVIE_API_URL}" \
-            --tag ${{ steps.login-ecr.outputs.registry }}/frontend:${{ github.sha }} \
+            --tag 449030632525.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }} \
             .
 
       - name: Push Docker image
         run: |
           docker push \
-            ${{ steps.login-ecr.outputs.registry }}/frontend:${{ github.sha }}
+            449030632525.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }}
 
   deploy:
     name: Deploy Frontend to EKS
@@ -125,7 +121,7 @@ jobs:
         working-directory: starter/frontend/k8s
         run: |
           kustomize edit set image \
-            frontend=${{ needs.build.outputs.registry }}/frontend:${{ github.sha }}
+            frontend=449030632525.dkr.ecr.us-east-1.amazonaws.com/frontend:${{ github.sha }}
 
       - name: Deploy frontend
         working-directory: starter/frontend/k8s

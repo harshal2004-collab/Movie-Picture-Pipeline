@@ -66,9 +66,6 @@ jobs:
       - lint
       - test
 
-    outputs:
-      registry: ${{ steps.login-ecr.outputs.registry }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -81,20 +78,19 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build Docker image
         working-directory: starter/backend
         run: |
           docker build \
-            --tag ${{ steps.login-ecr.outputs.registry }}/backend:${{ github.sha }} \
+            --tag 449030632525.dkr.ecr.us-east-1.amazonaws.com/backend:${{ github.sha }} \
             .
 
       - name: Push Docker image
         run: |
           docker push \
-            ${{ steps.login-ecr.outputs.registry }}/backend:${{ github.sha }}
+            449030632525.dkr.ecr.us-east-1.amazonaws.com/backend:${{ github.sha }}
 
   deploy:
     name: Deploy Backend to EKS
@@ -128,7 +124,7 @@ jobs:
         working-directory: starter/backend/k8s
         run: |
           kustomize edit set image \
-            backend=${{ needs.build.outputs.registry }}/backend:${{ github.sha }}
+            backend=449030632525.dkr.ecr.us-east-1.amazonaws.com/backend:${{ github.sha }}
 
       - name: Deploy backend
         working-directory: starter/backend/k8s
