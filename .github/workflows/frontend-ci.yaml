@@ -1,3 +1,4 @@
+# CI verification
 name: Frontend Continuous Integration
 
 on:
